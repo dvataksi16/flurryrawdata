@@ -1,5 +1,6 @@
 const rp = require('request-promise');
 const fs = require('fs');
+const decompress = require('./decompress')
 
 // Times need to be in milliseconds, https://www.epochconverter.com/
 /*
@@ -43,7 +44,7 @@ function createJobRequest(start_time, period) {
             'cache-control': 'no-cache',
             'content-type': 'application/vnd.api+json'
         },
-        'auth': {'bearer': config.token}
+        'auth': { 'bearer': config.token }
     };
 }
 
@@ -68,7 +69,7 @@ function createPollRequest(job_id) {
             'content-type': 'application/vnd.api+json',
             'accept': 'application/vnd.api+json'
         },
-        'auth': {'bearer': config.token}
+        'auth': { 'bearer': config.token }
     };
 }
 
@@ -91,8 +92,15 @@ function checkJobStatus(job_id) {
 function download(uri, filename) {
     const ext = `${config.format.toLocaleLowerCase()}.gz`;
 
-    return rp.get(uri).
-        pipe(fs.createWriteStream(`${filename}.${ext}`));
+    return new Promise((resolve, reject) => {
+        let ws = rp.get(uri).pipe(fs.createWriteStream(`${filename}.${ext}`));
+        ws.on('close', () => {
+            resolve();
+        })
+        .on('error', () => {
+            reject("Download Error...");
+        })
+    });
 }
 
 function sleep(ms) {
@@ -132,6 +140,10 @@ async function main() {
 
         console.log(`${total_jobs - waiting_job_queue.length}/${total_jobs} jobs completed.`);
     }
+
+    console.log("Finished Downloading, decompressing...");
+
+    await decompress();
 
     console.log("Finished!");
 }

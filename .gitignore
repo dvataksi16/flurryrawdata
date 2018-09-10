@@ -62,3 +62,5 @@ typings/
 config.js
 
 output
+temp
+unzipped
