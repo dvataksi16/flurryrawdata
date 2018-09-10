@@ -15,18 +15,21 @@ const decompress = require('./decompress')
  *}; //
  */
 
+// Either uncomment the lines above and enter your tokens, or create a new module that exports
+// the config as an object.
+const config = require('./config') // for security reasons, I have put tokens in separate file
+
 const download_queue = [];
 let waiting_job_queue = [];
 
-const config = require('./config') // for security reasons, I have put tokens in separate file
-
-function createJobRequestObject(start_time, period) {
+// Body object for the request to Flurry API to create job
+function createJobRequestObject(start_time) {
     return JSON.stringify({
         "data": {
             "type": "rawData",
             "attributes": {
                 "startTime": start_time,
-                "endTime": start_time + period,
+                "endTime": start_time + config.period,
                 "outputFormat": config.format,
                 "apiKey": config.api_key
             }
@@ -34,11 +37,12 @@ function createJobRequestObject(start_time, period) {
     });
 }
 
-function createJobRequest(start_time, period) {
+// The actual request object to be processed by request-promise
+function createJobRequest(start_time) {
     return {
         method: 'POST',
         uri: 'https://rawdata.flurry.com/pulse/v1/rawData',
-        body: createJobRequestObject(start_time, period),
+        body: createJobRequestObject(start_time),
 
         headers: {
             'cache-control': 'no-cache',
@@ -48,8 +52,9 @@ function createJobRequest(start_time, period) {
     };
 }
 
-function createJob(start_time, period) {
-    return rp(createJobRequest(start_time, period)).
+// create the request and return promise
+function createJob(start_time) {
+    return rp(createJobRequest(start_time)).
         then((data) => {
             const data_obj = JSON.parse(data);
 
@@ -60,6 +65,7 @@ function createJob(start_time, period) {
         catch(console.log)
 }
 
+// this object is used by request-promise to check on the job status
 function createPollRequest(job_id) {
     return {
         method: 'GET',
@@ -73,6 +79,8 @@ function createPollRequest(job_id) {
     };
 }
 
+// Returns a promise that checks the status of the job.
+// if the status is success, then move the job to the download queue
 function checkJobStatus(job_id) {
     return rp(createPollRequest(job_id)).
         then((data) => {
@@ -89,6 +97,8 @@ function checkJobStatus(job_id) {
         catch(console.log)
 }
 
+// Returns a promise to download the file.  Could pipe through 
+// GUnzip here and avoid the second decompress step
 function download(uri, filename) {
     const ext = `${config.format.toLocaleLowerCase()}.gz`;
 
@@ -103,12 +113,15 @@ function download(uri, filename) {
     });
 }
 
+// Need to wait until the jobs have finished, not constantly poll.
+// This function is used ahead of the while loop in main
 function sleep(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms)
     })
 }
 
+// The primary function
 async function main() {
 
     const job_reqs = [];
@@ -126,6 +139,7 @@ async function main() {
 
     fs.mkdir('./output', () => { });
 
+    // Phase 2: Check the Job Status
     while (waiting_job_queue.length > 0) {
         await sleep(config.wait_time);
         console.log("Checking job statuses...");
@@ -134,18 +148,23 @@ async function main() {
 
         await Promise.all(check_wait_promises);
 
+        // Phase 3: Download Jobs as they become complete
         const downloading_promises = download_queue.map((job) => download(job.uri, `./output/${job.id}`))
 
         await Promise.all(downloading_promises);
 
+        // progress
         console.log(`${total_jobs - waiting_job_queue.length}/${total_jobs} jobs completed.`);
     }
 
     console.log("Finished Downloading, decompressing...");
 
+    // Phase 4: Decompress output to unzipped folder.
     await decompress();
 
     console.log("Finished!");
 }
 
-main()
+
+// Call the program
+main();
