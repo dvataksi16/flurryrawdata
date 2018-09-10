@@ -13,6 +13,7 @@ Install
 -------
 
 Download/Clone this git repo
+`git clone https://github.com/jpoag/flurryrawdata.git`
 
 Dependencies:
 `npm install `
@@ -24,4 +25,4 @@ Also, adjust the start and end dates using an [Epoch Converter](https://www.epoc
 Run:
 `npm start`
 
-Wait until the jobs complete.
+Wait until the jobs complete.  I was able to download 5 years of data between 10 - 15 minutes.
