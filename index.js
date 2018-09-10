@@ -15,8 +15,10 @@ const decompress = require('./decompress')
  *}; //
  */
 
-// Either uncomment the lines above and enter your tokens, or create a new module that exports
-// the config as an object.
+/*
+ * Either uncomment the lines above and enter your tokens, or create a new module that exports
+ * the config as an object.
+ */
 const config = require('./config') // for security reasons, I have put tokens in separate file
 
 const download_queue = [];
@@ -48,7 +50,7 @@ function createJobRequest(start_time) {
             'cache-control': 'no-cache',
             'content-type': 'application/vnd.api+json'
         },
-        'auth': { 'bearer': config.token }
+        'auth': {'bearer': config.token}
     };
 }
 
@@ -75,12 +77,14 @@ function createPollRequest(job_id) {
             'content-type': 'application/vnd.api+json',
             'accept': 'application/vnd.api+json'
         },
-        'auth': { 'bearer': config.token }
+        'auth': {'bearer': config.token}
     };
 }
 
-// Returns a promise that checks the status of the job.
-// if the status is success, then move the job to the download queue
+/*
+ * Returns a promise that checks the status of the job.
+ * if the status is success, then move the job to the download queue
+ */
 function checkJobStatus(job_id) {
     return rp(createPollRequest(job_id)).
         then((data) => {
@@ -97,24 +101,29 @@ function checkJobStatus(job_id) {
         catch(console.log)
 }
 
-// Returns a promise to download the file.  Could pipe through 
-// GUnzip here and avoid the second decompress step
+/*
+ * Returns a promise to download the file.  Could pipe through 
+ * GUnzip here and avoid the second decompress step
+ */
 function download(uri, filename) {
     const ext = `${config.format.toLocaleLowerCase()}.gz`;
 
     return new Promise((resolve, reject) => {
-        let ws = rp.get(uri).pipe(fs.createWriteStream(`${filename}.${ext}`));
+        const ws = rp.get(uri).pipe(fs.createWriteStream(`${filename}.${ext}`));
+
         ws.on('close', () => {
             resolve();
-        })
-        .on('error', () => {
-            reject("Download Error...");
-        })
+        }).
+            on('error', () => {
+                reject(new Error("Download Error..."));
+            })
     });
 }
 
-// Need to wait until the jobs have finished, not constantly poll.
-// This function is used ahead of the while loop in main
+/*
+ * Need to wait until the jobs have finished, not constantly poll.
+ * This function is used ahead of the while loop in main
+ */
 function sleep(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms)
@@ -128,7 +137,7 @@ async function main() {
 
     // Phase 1 : generate job requests
     for (let job_start = config.start_time; job_start < config.end_time; job_start += config.period) {
-        job_reqs.push(createJob(job_start, config.period));
+        job_reqs.push(createJob(job_start));
     }
 
     await Promise.all(job_reqs);
